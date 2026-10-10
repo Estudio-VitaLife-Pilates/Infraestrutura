@@ -20,3 +20,9 @@ variable "instance_profile_name" {
   type        = string
   default     = "LabInstanceProfile"
 }
+
+variable "function_name" {
+  description = "Nome da função Lambda que irá injetar dados no bucket S3 bronze."
+  type        = string
+  default     = "datainjector_bronze"
+}
