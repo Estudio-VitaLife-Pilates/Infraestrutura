@@ -1,0 +1,104 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Description: Buckets bronze, silver e gold e Lambda para upload na camada bronze.
+Transform: AWS::Serverless-2016-10-31
+
+Resources:
+  BronzeBucket:
+    Type: AWS::S3::Bucket
+    Properties:
+      BucketName: infra-pilates-bronze
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls: true
+        BlockPublicPolicy: true
+        IgnorePublicAcls: true
+        RestrictPublicBuckets: true
+    DeletionPolicy: Retain
+    UpdateReplacePolicy: Retain
+
+  SilverBucket:
+    Type: AWS::S3::Bucket
+    Properties:
+      BucketName: infra-pilates-silver
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls: true
+        BlockPublicPolicy: true
+        IgnorePublicAcls: true
+        RestrictPublicBuckets: true
+    DeletionPolicy: Retain
+    UpdateReplacePolicy: Retain
+
+  GoldBucket:
+    Type: AWS::S3::Bucket
+    Properties:
+      BucketName: infra-pilates-gold
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls: true
+        BlockPublicPolicy: true
+        IgnorePublicAcls: true
+        RestrictPublicBuckets: true
+    DeletionPolicy: Retain
+    UpdateReplacePolicy: Retain
+
+  BronzeUploadFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: datainjector_bronze
+      Runtime: python3.12
+      Handler: app.lambda_handler
+      Role: !Sub arn:aws:iam::${AWS::AccountId}:role/LabRole
+      Timeout: 30
+      MemorySize: 128
+      CodeUri: lambda/
+      Environment:
+        Variables:
+          BUCKET_NAME: !Ref BronzeBucket
+
+  BronzeUploadFunctionUrl:
+    Type: AWS::Lambda::Url
+    Properties:
+      TargetFunctionArn: !GetAtt BronzeUploadFunction.Arn
+      AuthType: NONE
+      Cors:
+        AllowOrigins:
+          - "*"
+        AllowMethods:
+          - GET
+          - POST
+          - PUT
+
+  BronzeUploadFunctionUrlPermission:
+    Type: AWS::Lambda::Permission
+    Properties:
+      FunctionName: !Ref BronzeUploadFunction
+      Action: lambda:InvokeFunctionUrl
+      Principal: "*"
+      FunctionUrlAuthType: NONE
+
+  BronzeUploadFunctionInvokePermission:
+    Type: AWS::Lambda::Permission
+    Properties:
+      FunctionName: !Ref BronzeUploadFunction
+      Action: lambda:InvokeFunction
+      Principal: "*"
+      InvokedViaFunctionUrl: true
+
+Outputs:
+  BronzeBucketName:
+    Description: Nome do bucket S3 bronze
+    Value: !Ref BronzeBucket
+
+  SilverBucketName:
+    Description: Nome do bucket S3 silver
+    Value: !Ref SilverBucket
+
+  GoldBucketName:
+    Description: Nome do bucket S3 gold
+    Value: !Ref GoldBucket
+
+  BronzeUploadFunctionName:
+    Description: Nome da funcao Lambda de upload
+    Value: !Ref BronzeUploadFunction
+
+  BronzeUploadFunctionUrl:
+    Description: URL HTTPS publica para envio de arquivos ao bucket bronze
+    Value: !GetAtt BronzeUploadFunctionUrl.FunctionUrl
