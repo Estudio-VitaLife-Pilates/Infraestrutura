@@ -1,0 +1,134 @@
+service:
+  flush: 5
+  log_level: info
+  http_server: true
+  http_port: 2020
+  health_check: true
+  hot_reload: true
+  parsers_file: /etc/fluent-bit/parsers.conf
+  storage.path: /var/lib/fluent-bit/storage
+  storage.sync: normal
+  storage.checksum: off
+  storage.backlog.mem_limit: 50M
+
+pipeline:
+  inputs:
+    - name: systemd
+      tag: systemd.${hostname}
+      db: /var/lib/fluent-bit/systemd.db
+      read_from_tail: true
+
+    - name: tail
+      tag: container.${hostname}
+      path: /var/lib/docker/containers/*/*-json.log
+      parser: docker
+      path_key: source_file
+      db: /var/lib/fluent-bit/docker.db
+      read_from_head: false
+      rotate_wait: 30
+      skip_long_lines: true
+      storage.type: filesystem
+
+    - name: tail
+      tag: file.auth.${hostname}
+      path: /var/log/auth.log
+      path_key: source_file
+      db: /var/lib/fluent-bit/auth.db
+      read_from_head: false
+      rotate_wait: 30
+      skip_long_lines: true
+      storage.type: filesystem
+
+    - name: tail
+      tag: file.syslog.${hostname}
+      path: /var/log/syslog
+      path_key: source_file
+      db: /var/lib/fluent-bit/syslog.db
+      read_from_head: false
+      rotate_wait: 30
+      skip_long_lines: true
+      storage.type: filesystem
+
+    - name: tail
+      tag: file.dpkg.${hostname}
+      path: /var/log/dpkg.log
+      path_key: source_file
+      db: /var/lib/fluent-bit/dpkg.db
+      read_from_head: false
+      rotate_wait: 30
+      skip_long_lines: true
+      storage.type: filesystem
+
+    - name: tail
+      tag: file.kern.${hostname}
+      path: /var/log/kern.log
+      path_key: source_file
+      db: /var/lib/fluent-bit/kern.db
+      read_from_head: false
+      rotate_wait: 30
+      skip_long_lines: true
+      storage.type: filesystem
+
+    - name: tail
+      tag: file.ufw.${hostname}
+      path: /var/log/ufw.log
+      path_key: source_file
+      db: /var/lib/fluent-bit/ufw.db
+      read_from_head: false
+      rotate_wait: 30
+      skip_long_lines: true
+      storage.type: filesystem
+
+%{ if collect_nginx ~}
+    - name: tail
+      tag: nginx.${hostname}
+      path: /var/log/nginx/access.log,/var/log/nginx/error.log
+      path_key: source_file
+      db: /var/lib/fluent-bit/nginx.db
+      read_from_head: false
+      rotate_wait: 30
+      skip_long_lines: true
+      storage.type: filesystem
+%{ endif ~}
+
+  filters:
+    - name: record_modifier
+      match: systemd.*
+      record:
+        - hostname ${hostname}
+        - source_type systemd
+        - environment dev
+
+    - name: record_modifier
+      match: container.*
+      record:
+        - hostname ${hostname}
+        - source_type container
+        - environment dev
+
+    - name: record_modifier
+      match: file.*
+      record:
+        - hostname ${hostname}
+        - source_type system_file
+        - environment dev
+
+%{ if collect_nginx ~}
+    - name: record_modifier
+      match: nginx.*
+      record:
+        - hostname ${hostname}
+        - source_type nginx
+        - environment dev
+%{ endif ~}
+
+  outputs:
+    - name: s3
+      match: '*'
+      bucket: infra-pilates-bronze
+      region: us-east-1
+      total_file_size: 5M
+      upload_timeout: 1m
+      store_dir: /var/lib/fluent-bit/s3
+      format: json_lines
+      s3_key_format: /logs/$TAG/dt=%Y-%m-%d/$UUID.json
