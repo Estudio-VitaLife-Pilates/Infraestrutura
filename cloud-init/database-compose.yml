@@ -1,0 +1,14 @@
+services:
+  mysql:
+    image: mysql:8.4
+    container_name: pilates-mysql
+    restart: "no"
+    environment:
+      MYSQL_ROOT_PASSWORD: root
+      MYSQL_DATABASE: pilates
+      MYSQL_USER: pilates_app
+      MYSQL_PASSWORD: root
+    ports:
+      - "3306:3306"
+    volumes:
+      - $${MYSQL_DATA_DIR:?MYSQL_DATA_DIR must be set}:/var/lib/mysql
