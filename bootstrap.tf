@@ -15,13 +15,12 @@ locals {
 
   app_bootstrap = replace(templatefile("${path.module}/cloud-init/app.sh", {
     fluent_bit_config_b64 = base64encode(local.fluent_bit_config_app)
-    backend_compose_b64 = base64encode(templatefile("${path.module}/cloud-init/backend-compose.yml", {
-      database_host = aws_instance.instancia_bd.private_ip
-    }))
+    backend_compose_b64   = base64encode(templatefile("${path.module}/cloud-init/backend-compose.yml", {}))
     deploy_script_b64 = base64encode(replace(templatefile("${path.module}/cloud-init/deploy-backend.sh", {
       aws_region   = local.aws_region
       ecr_registry = local.ecr_registry
     }), "\r\n", "\n"))
+    database_host = aws_instance.instancia_bd.private_ip
   }), "\r\n", "\n")
 
   database_bootstrap = replace(templatefile("${path.module}/cloud-init/database.sh", {
@@ -76,7 +75,7 @@ resource "aws_ssm_association" "app_bootstrap" {
   }
 
   parameters = {
-    commands = "apt-get update && apt-get install -y awscli && aws s3 cp --region ${local.aws_region} s3://infra-pilates-bronze/bootstrap/infra-pilates/app.sh /tmp/infra-pilates-app-bootstrap.sh && sed -i 's/\\r$//' /tmp/infra-pilates-app-bootstrap.sh && bash /tmp/infra-pilates-app-bootstrap.sh"
+    commands = "echo 'App bootstrap revision ${aws_s3_object.app_bootstrap.etag}' && apt-get update && apt-get install -y awscli && aws s3 cp --region ${local.aws_region} s3://infra-pilates-bronze/bootstrap/infra-pilates/app.sh /tmp/infra-pilates-app-bootstrap.sh && sed -i 's/\\r$//' /tmp/infra-pilates-app-bootstrap.sh && bash /tmp/infra-pilates-app-bootstrap.sh"
   }
 
   depends_on = [

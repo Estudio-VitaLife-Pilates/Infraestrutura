@@ -8,7 +8,7 @@ scripts de bootstrap no prefixo privado
 Manager às EC2 existentes:
 
 - A EC2 `InstanciaApp-01` recebe Docker, Fluent Bit, o Compose do backend e o
-  comando `/usr/local/bin/deploy-backend <tag>`.
+  comando `/usr/local/bin/deploy-backend <tag> [database-ip]`.
 - A EC2 `InstanciaBD-01` recebe Docker, Fluent Bit e um Compose do MySQL.
   Um volume EBS separado é montado em `/mnt/pilates-mysql`. O timer do systemd
   tenta iniciar o MySQL a cada minuto até o container subir.
@@ -42,9 +42,10 @@ e deduplicá-los em consultas. Os logs de autenticação e firewall podem conter
 informações sensíveis.
 
 Para atualizar instâncias existentes, execute `terraform apply` para publicar
-os novos scripts no S3. Depois, execute novamente as associações de bootstrap
-`<project>-app-bootstrap` e `<project>-database-bootstrap` no Systems Manager
-(ou rode os respectivos scripts baixados do S3 nas instâncias). Alterações no
+os novos scripts no S3. Uma mudança no bootstrap da aplicação atualiza sua
+associação SSM e reaplica o script na EC2 do backend. Para reaplicar o bootstrap
+do banco, execute a associação `<project>-database-bootstrap` no Systems
+Manager (ou rode o script baixado do S3 na instância). Alterações no
 `user_data` substituem as instâncias web; revise o plano antes do apply e
 aguarde a recriação/substituição delas.
 
@@ -133,8 +134,11 @@ docker compose --env-file .env up --build -d
 Depois de aplicar a infraestrutura e atualizar as credenciais nos Compose,
 faça push na branch `develop` do `BackEnd`. O workflow compila a imagem,
 publica no ECR com o SHA do commit como tag e usa o Systems Manager para
-executar `deploy-backend` na EC2 da aplicação. O backend conecta ao IP privado
-da EC2 do banco.
+executar `deploy-backend` na EC2 da aplicação. A cada deploy, o workflow
+consulta o IP privado atual da EC2 do banco e o passa ao script; se o endereço
+configurado no container mudar, o Compose recria o backend usando o novo destino.
+O script também compara o `DB_URL` real do container para manter o deploy
+idempotente quando imagem e banco já estiverem corretos.
 
 A pipeline precisa de credenciais que permitam publicar no ECR e usar Systems
 Manager.
