@@ -31,8 +31,9 @@ de log para limitar o uso de disco local.
 tradicionais. O pacote UFW também é instalado e seu nível de log é configurado
 como `low`, mas o firewall **não é habilitado** nem recebe regras; portanto,
 `ufw.log` só terá eventos se o UFW for ativado e houver tráfego registrado.
-O Fluent Bit roda com acesso aos grupos `adm` e `systemd-journal` para ler os
-logs protegidos.
+O Fluent Bit roda como `root` para ler os arquivos protegidos, os logs dos
+containers Docker e o journal sem depender de uma conta de serviço que pode não
+ser criada pelo pacote da distribuição.
 
 Parte dos eventos de `auth.log`, `syslog` e `kern.log` também aparece no
 journal, então esses eventos podem ser coletados duas vezes, uma sob `systemd.*`
@@ -47,10 +48,18 @@ os novos scripts no S3. Depois, execute novamente as associações de bootstrap
 `user_data` substituem as instâncias web; revise o plano antes do apply e
 aguarde a recriação/substituição delas.
 
-O Terraform **não cria nem gerencia o repositório ECR**. A URL esperada é
-`<ID_DA_CONTA>.dkr.ecr.us-east-1.amazonaws.com/backend/dev`; crie esse
-repositório separadamente no ECR antes de publicar a primeira imagem. A saída
-`ecr_backend_repository_url` apenas informa essa URL.
+O Terraform cria os repositórios ECR `backend/dev` e `frontend/dev`; suas URLs
+estão disponíveis nas saídas `ecr_backend_repository_url` e
+`ecr_frontend_repository_url`. Ambos usam tags mutáveis e varredura de imagem
+ao publicar.
+
+Se algum desses repositórios já existir na conta AWS, importe-o para o state
+antes de aplicar, em vez de tentar criá-lo novamente. Por exemplo:
+
+```powershell
+terraform import aws_ecr_repository.backend backend/dev
+terraform import aws_ecr_repository.frontend frontend/dev
+```
 
 Os arquivos `.sh` em `cloud-init/` são scripts shell processados pelo
 `templatefile()` do Terraform para preencher valores de infraestrutura. A
@@ -61,6 +70,35 @@ aplicação e banco é executada pelo Systems Manager (SSM), que baixa os script
 publicados no S3. O arquivo `fluent-bit.yaml` usa a sintaxe YAML do Fluent Bit
 (suportada a partir da versão 3.2); cada host recebe sua configuração
 preenchida e a instala em `/etc/fluent-bit/fluent-bit.yaml`.
+
+## Pipeline de infraestrutura
+
+O workflow `.github/workflows/terraform-apply.yml` roda em push para `develop`
+ou por `workflow_dispatch`. Ele executa `fmt`, `init`, `validate` e `plan`, e
+depois aplica automaticamente exatamente o plano salvo, sem aprovação manual.
+Configure os secrets `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY` e
+`AWS_SECRET_SESSION_TOKEN` no environment `development`. A credencial precisa
+ler/gravar o state e lock em
+`s3://infra-pilates-bronze/terraform/infraestrutura/` e ter permissões para os
+recursos AWS gerenciados pelo Terraform. Cada push em `develop` pode alterar
+recursos reais, incluindo substituir ou remover recursos conforme o plano;
+revise o resumo do job `Terraform plan` e proteja a branch `develop` com revisão
+de pull request antes do merge.
+
+O state deste diretório já foi migrado para o backend S3
+`s3://infra-pilates-bronze/terraform/infraestrutura/terraform.tfstate`, com
+criptografia e lockfile nativo do Terraform. Em outra cópia que ainda tenha
+state local, migre-o uma única vez na pasta `Infraestrutura`, usando credenciais
+AWS válidas:
+
+```powershell
+terraform init -migrate-state
+```
+
+Confirme a migração quando solicitado e verifique que `terraform state list`
+mostra os recursos esperados. O bucket bronze já existe e também guarda logs;
+restrinja o acesso ao prefixo do state, pois o state do Terraform pode conter
+dados sensíveis. Não execute `terraform apply` local em paralelo com a pipeline.
 
 ## Credenciais nos Docker Compose
 
@@ -92,14 +130,38 @@ docker compose --env-file .env up --build -d
 
 ## Publicar e executar a imagem na EC2
 
-Depois de criar o repositório ECR, atualizar as credenciais nos Compose e
-aplicar a infraestrutura, faça push na branch `develop`. O workflow existente
-compila a imagem, publica no ECR com o SHA do commit como tag e usa o Systems
-Manager para executar `deploy-backend` na EC2 da aplicação. O backend conecta
-ao IP privado da EC2 do banco.
+Depois de aplicar a infraestrutura e atualizar as credenciais nos Compose,
+faça push na branch `develop` do `BackEnd`. O workflow compila a imagem,
+publica no ECR com o SHA do commit como tag e usa o Systems Manager para
+executar `deploy-backend` na EC2 da aplicação. O backend conecta ao IP privado
+da EC2 do banco.
 
-A primeira publicação só ocorrerá quando o repositório já existir e a pipeline
-estiver configurada com credenciais que permitam ECR e Systems Manager.
+A pipeline precisa de credenciais que permitam publicar no ECR e usar Systems
+Manager.
+
+## Publicar e executar o frontend
+
+O workflow em `FrontEnd/.github/workflows/aws-deploy-dev.yml` é acionado em push
+para `develop`: instala dependências, gera o build Vite, publica a imagem no
+ECR `frontend/dev` com o SHA do commit e atualiza as duas EC2 web via SSM. O
+workflow envia o script de deploy junto ao comando SSM; esse script instala
+Docker, Docker Compose, Nginx, AWS CLI e curl caso estejam ausentes, configura
+o proxy e executa o container. Portanto, o arquivo
+`/usr/local/bin/deploy-frontend` não precisa existir previamente nas instâncias.
+O Terraform ainda precisa ter criado o repositório ECR antes do push.
+Configure no repositório GitHub `FrontEnd` os secrets
+`AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY` e `AWS_SECRET_SESSION_TOKEN`, além
+do environment `development` usado pelo workflow. As credenciais precisam
+permitir push ao ECR, localizar as EC2 e executar/comprovar comandos SSM. O
+instance profile associado às EC2 web também precisa permitir autenticação e
+pull de imagens desse repositório (`ecr:GetAuthorizationToken`,
+`ecr:BatchGetImage`, `ecr:GetDownloadUrlForLayer` e `ecr:BatchCheckLayerAvailability`);
+o Terraform não altera a role/profile IAM existente.
+
+O Nginx da EC2 encaminha `/` para o container frontend local e `/api/` para a
+EC2 do backend; o código frontend usa a URL relativa `/api`, mantendo o tráfego
+da API no mesmo host do ALB. Se `user_data` mudou, aplique o Terraform e aguarde
+a substituição das instâncias web antes de fazer push para `develop`.
 
 ## Athena e Glue
 

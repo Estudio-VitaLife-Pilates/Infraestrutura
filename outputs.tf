@@ -29,8 +29,13 @@ output "efs_id" {
 }
 
 output "ecr_backend_repository_url" {
-  description = "URL esperada do repositório ECR externo da imagem do backend"
-  value       = "${local.ecr_registry}/backend/dev"
+  description = "URL do repositório ECR da imagem do backend"
+  value       = aws_ecr_repository.backend.repository_url
+}
+
+output "ecr_frontend_repository_url" {
+  description = "URL do repositório ECR da imagem do frontend"
+  value       = aws_ecr_repository.frontend.repository_url
 }
 
 output "mysql_data_volume_id" {
