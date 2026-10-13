@@ -43,6 +43,10 @@ systemctl restart fluent-bit
 
 install -d -m 750 /opt/infra-pilates/backend
 printf '%s' '${backend_compose_b64}' | base64 --decode > /opt/infra-pilates/backend/compose.yml
+touch /opt/infra-pilates/backend/.env
+sed -i '/^DATABASE_HOST=/d' /opt/infra-pilates/backend/.env
+printf 'DATABASE_HOST=%s\n' '${database_host}' >> /opt/infra-pilates/backend/.env
+chmod 600 /opt/infra-pilates/backend/.env
 printf '%s' '${deploy_script_b64}' | base64 --decode > /usr/local/bin/deploy-backend
 chmod 750 /usr/local/bin/deploy-backend
 
