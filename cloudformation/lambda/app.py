@@ -1,48 +1,32 @@
-import base64
-import json
 import os
-
+import urllib.request
 import boto3
 
 s3 = boto3.client("s3")
+
 BUCKET_NAME = os.environ["BUCKET_NAME"]
+FILE_URL = os.environ["FILE_URL"]
+FILE_NAME = os.environ.get("FILE_NAME", "arquivo.csv")
 
 
 def lambda_handler(event, context):
-    query_params = event.get("queryStringParameters") or {}
-    file_name = query_params.get("filename")
-
-    if not file_name:
-        return {
-            "statusCode": 400,
-            "headers": {"Content-Type": "application/json"},
-            "body": json.dumps(
-                {
-                    "error": "O parametro filename e obrigatorio na URL "
-                    "(?filename=exemplo.txt)"
-                }
-            ),
-        }
-
     try:
-        body = event.get("body", "")
-        if event.get("isBase64Encoded", False):
-            file_content = base64.b64decode(body)
-        else:
-            file_content = body.encode("utf-8") if isinstance(body, str) else body
+        with urllib.request.urlopen(FILE_URL) as response:
+            file_content = response.read()
 
-        s3.put_object(Bucket=BUCKET_NAME, Key=file_name, Body=file_content)
+        s3.put_object(
+            Bucket=BUCKET_NAME,
+            Key=FILE_NAME,
+            Body=file_content
+        )
 
         return {
             "statusCode": 200,
-            "headers": {"Content-Type": "application/json"},
-            "body": json.dumps(
-                {"message": f"Arquivo raw/{file_name} salvo com sucesso no S3!"}
-            ),
+            "body": f"Arquivo {FILE_NAME} salvo com sucesso no S3."
         }
+
     except Exception as error:
         return {
             "statusCode": 500,
-            "headers": {"Content-Type": "application/json"},
-            "body": json.dumps({"error": str(error)}),
+            "body": str(error)
         }
