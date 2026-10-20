@@ -74,17 +74,30 @@ preenchida e a instala em `/etc/fluent-bit/fluent-bit.yaml`.
 
 ## Pipeline de infraestrutura
 
-O workflow `.github/workflows/terraform-apply.yml` roda em push para `develop`
-ou por `workflow_dispatch`. Ele executa `fmt`, `init`, `validate` e `plan`, e
-depois aplica automaticamente exatamente o plano salvo, sem aprovação manual.
+O workflow `.github/workflows/terraform-apply.yml` roda em push para `main` ou
+por `workflow_dispatch`. Primeiro, o job `Deploy CloudFormation data lake`
+instala o AWS SAM CLI e cria ou atualiza a stack `infra-pilates-data-lake`;
+`--resolve-s3` cria e usa um bucket para os artefatos da Lambda. Só depois o
+workflow executa `fmt`, `init`, `validate` e `plan`, e aplica automaticamente
+exatamente o plano salvo, sem aprovação manual.
+
 Configure os secrets `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY` e
 `AWS_SECRET_SESSION_TOKEN` no environment `development`. A credencial precisa
-ler/gravar o state e lock em
+criar/atualizar a stack CloudFormation, os buckets definidos no template, a
+Lambda e sua Function URL, além de criar e usar o bucket de artefatos do SAM.
+Também precisa ler/gravar o state e lock em
 `s3://infra-pilates-bronze/terraform/infraestrutura/` e ter permissões para os
-recursos AWS gerenciados pelo Terraform. Cada push em `develop` pode alterar
+recursos AWS gerenciados pelo Terraform. Cada push em `main` pode alterar
 recursos reais, incluindo substituir ou remover recursos conforme o plano;
-revise o resumo do job `Terraform plan` e proteja a branch `develop` com revisão
-de pull request antes do merge.
+revise o resumo do job `Terraform plan` e proteja a branch `main` com revisão de
+pull request antes do merge.
+
+Em uma conta nova, os nomes dos buckets no template precisam estar disponíveis
+globalmente e a role `LabRole` usada pela Lambda precisa existir. Se os buckets
+já tiverem sido criados fora da stack `infra-pilates-data-lake`, a criação
+automática pode falhar por conflito de propriedade; importe-os para a stack ou
+ajuste o gerenciamento antes de habilitar o workflow. Não rode Terraform local
+em paralelo com esse pipeline.
 
 O state deste diretório já foi migrado para o backend S3
 `s3://infra-pilates-bronze/terraform/infraestrutura/terraform.tfstate`, com
