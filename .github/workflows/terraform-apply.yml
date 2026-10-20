@@ -72,8 +72,11 @@ jobs:
       - name: Check formatting
         run: terraform fmt -check -recursive
 
+      - name: Configure Terraform state bucket
+        run: echo "TF_STATE_BUCKET=infra-pilates-bronze-$(aws sts get-caller-identity --query Account --output text)" >> "$GITHUB_ENV"
+
       - name: Initialize Terraform
-        run: terraform init -input=false
+        run: terraform init -input=false -backend-config="bucket=$TF_STATE_BUCKET"
 
       - name: Validate Terraform
         run: terraform validate
@@ -121,8 +124,11 @@ jobs:
           terraform_version: 1.14.6
           terraform_wrapper: false
 
+      - name: Configure Terraform state bucket
+        run: echo "TF_STATE_BUCKET=infra-pilates-bronze-$(aws sts get-caller-identity --query Account --output text)" >> "$GITHUB_ENV"
+
       - name: Initialize Terraform
-        run: terraform init -input=false
+        run: terraform init -input=false -backend-config="bucket=$TF_STATE_BUCKET"
 
       - name: Download saved plan
         uses: actions/download-artifact@v4

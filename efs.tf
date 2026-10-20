@@ -19,6 +19,7 @@ locals {
   fluent_bit_config_web = templatefile("${path.module}/cloud-init/fluent-bit.yaml", {
     hostname      = "web"
     collect_nginx = true
+    bucket_name   = local.bronze_bucket
   })
 
   web_user_data = replace(templatefile("${path.module}/cloud-init/web.sh", {

@@ -10,7 +10,7 @@ resource "aws_glue_crawler" "logs" {
   table_prefix  = "pilates_"
 
   s3_target {
-    path = "s3://infra-pilates-bronze/logs/"
+    path = "s3://${local.bronze_bucket}/logs/"
   }
 
   schema_change_policy {
@@ -32,7 +32,7 @@ resource "aws_athena_workgroup" "logs" {
     publish_cloudwatch_metrics_enabled = true
 
     result_configuration {
-      output_location = "s3://infra-pilates-bronze/athena-results/"
+      output_location = "s3://${local.bronze_bucket}/athena-results/"
 
       encryption_configuration {
         encryption_option = "SSE_S3"

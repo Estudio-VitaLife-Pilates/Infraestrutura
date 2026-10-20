@@ -12,3 +12,7 @@ terraform {
 provider "aws" {
   region = "us-east-1"
 }
+
+locals {
+  bronze_bucket = "infra-pilates-bronze-${data.aws_caller_identity.current.account_id}"
+}
