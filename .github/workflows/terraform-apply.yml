@@ -13,10 +13,43 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
+  data-lake:
+    name: Deploy CloudFormation data lake
+    runs-on: ubuntu-latest
+    environment: development
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v6
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-session-token: ${{ secrets.AWS_SECRET_SESSION_TOKEN }}
+          aws-region: us-east-1
+
+      - name: Set up AWS SAM
+        uses: aws-actions/setup-sam@v3
+        with:
+          use-installer: true
+
+      - name: Deploy CloudFormation stack
+        run: >-
+          sam deploy
+          --no-confirm-changeset
+          --no-fail-on-empty-changeset
+          --resolve-s3
+          --stack-name infra-pilates-data-lake
+          --template-file cloudformation/data-lake.yml
+          --region us-east-1
+
   plan:
     name: Terraform plan
     runs-on: ubuntu-latest
     environment: development
+    needs: data-lake
 
     steps:
       - name: Checkout
