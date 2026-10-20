@@ -15,7 +15,8 @@ Manager às EC2 existentes:
 - As duas EC2 web recebem um perfil IAM para publicar logs e iniciam Fluent Bit
   junto do Nginx. A alteração do `user_data` recria somente essas instâncias;
   o plano mantém as EC2 do backend e do banco.
-- Todos os agentes enviam logs JSON Lines ao prefixo `s3://infra-pilates-bronze/logs/`.
+- Todos os agentes enviam logs JSON Lines ao prefixo
+  `s3://infra-pilates-bronze-${AWS_ACCOUNT_ID}/logs/`.
   Os objetos são organizados por tipo de origem, host e data.
 
 Os agentes coletam o journal do systemd; os arquivos tradicionais
@@ -86,33 +87,28 @@ Configure os secrets `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY` e
 criar/atualizar a stack CloudFormation, os buckets definidos no template, a
 Lambda e sua Function URL, além de criar e usar o bucket de artefatos do SAM.
 Também precisa ler/gravar o state e lock em
-`s3://infra-pilates-bronze/terraform/infraestrutura/` e ter permissões para os
-recursos AWS gerenciados pelo Terraform. Cada push em `main` pode alterar
-recursos reais, incluindo substituir ou remover recursos conforme o plano;
-revise o resumo do job `Terraform plan` e proteja a branch `main` com revisão de
-pull request antes do merge.
+`s3://infra-pilates-bronze-${AWS_ACCOUNT_ID}/terraform/infraestrutura/` e ter
+permissões para os recursos AWS gerenciados pelo Terraform. Cada push em `main`
+pode alterar recursos reais, incluindo substituir ou remover recursos conforme
+o plano; revise o resumo do job `Terraform plan` e proteja a branch `main` com
+revisão de pull request antes do merge.
 
-Em uma conta nova, os nomes dos buckets no template precisam estar disponíveis
-globalmente e a role `LabRole` usada pela Lambda precisa existir. Se os buckets
-já tiverem sido criados fora da stack `infra-pilates-data-lake`, a criação
-automática pode falhar por conflito de propriedade; importe-os para a stack ou
-ajuste o gerenciamento antes de habilitar o workflow. Não rode Terraform local
-em paralelo com esse pipeline.
+O template CloudFormation nomeia os buckets com o ID da conta AWS, evitando
+colisão com nomes globais usados por outras contas. O Terraform usa o mesmo
+nome para logs, bootstrap e backend remoto. A role `LabRole` ainda precisa
+existir na conta. Não rode Terraform local em paralelo com esse pipeline.
 
-O state deste diretório já foi migrado para o backend S3
-`s3://infra-pilates-bronze/terraform/infraestrutura/terraform.tfstate`, com
-criptografia e lockfile nativo do Terraform. Em outra cópia que ainda tenha
-state local, migre-o uma única vez na pasta `Infraestrutura`, usando credenciais
-AWS válidas:
+O backend Terraform é configurado parcialmente em `backend.tf`; o workflow
+descobre o ID da conta e fornece o nome do bucket durante `terraform init`.
+Para inicializar localmente, use credenciais da mesma conta:
 
 ```powershell
-terraform init -migrate-state
+terraform init "-backend-config=bucket=infra-pilates-bronze-$(aws sts get-caller-identity --query Account --output text)"
 ```
 
-Confirme a migração quando solicitado e verifique que `terraform state list`
-mostra os recursos esperados. O bucket bronze já existe e também guarda logs;
-restrinja o acesso ao prefixo do state, pois o state do Terraform pode conter
-dados sensíveis. Não execute `terraform apply` local em paralelo com a pipeline.
+Se houver state local nessa cópia, inclua `-migrate-state` e confirme a
+migração somente depois de verificar o destino. Restrinja o acesso ao prefixo
+do state, pois o state do Terraform pode conter dados sensíveis.
 
 ## Credenciais nos Docker Compose
 
@@ -184,9 +180,11 @@ a substituição das instâncias web antes de fazer push para `develop`.
 
 O Terraform cria o banco Glue `infra_pilates_logs`, o crawler
 `infra-pilates-logs` e o workgroup Athena `infra-pilates-logs`. O crawler usa a
-role existente `LabRole` e aponta para `s3://infra-pilates-bronze/logs/`; não
-cria nem altera roles IAM. O workgroup grava resultados em
-`s3://infra-pilates-bronze/athena-results/` com criptografia SSE-S3.
+role existente `LabRole` e aponta para
+`s3://infra-pilates-bronze-${AWS_ACCOUNT_ID}/logs/`; não cria nem altera roles
+IAM. O workgroup grava resultados em
+`s3://infra-pilates-bronze-${AWS_ACCOUNT_ID}/athena-results/` com criptografia
+SSE-S3.
 
 Depois do `terraform apply`, inicie o crawler manualmente pelo console AWS
 (Glue → Crawlers → `infra-pilates-logs` → Run crawler). Ele é intencionalmente

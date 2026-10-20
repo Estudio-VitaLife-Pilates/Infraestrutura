@@ -6,7 +6,7 @@ Resources:
   BronzeBucket:
     Type: AWS::S3::Bucket
     Properties:
-      BucketName: infra-pilates-bronze
+      BucketName: !Sub infra-pilates-bronze-${AWS::AccountId}
       PublicAccessBlockConfiguration:
         BlockPublicAcls: true
         BlockPublicPolicy: true
@@ -18,7 +18,7 @@ Resources:
   SilverBucket:
     Type: AWS::S3::Bucket
     Properties:
-      BucketName: infra-pilates-silver
+      BucketName: !Sub infra-pilates-silver-${AWS::AccountId}
       PublicAccessBlockConfiguration:
         BlockPublicAcls: true
         BlockPublicPolicy: true
@@ -30,7 +30,7 @@ Resources:
   GoldBucket:
     Type: AWS::S3::Bucket
     Properties:
-      BucketName: infra-pilates-gold
+      BucketName: !Sub infra-pilates-gold-${AWS::AccountId}
       PublicAccessBlockConfiguration:
         BlockPublicAcls: true
         BlockPublicPolicy: true

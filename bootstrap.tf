@@ -7,10 +7,12 @@ locals {
   fluent_bit_config_app = templatefile("${path.module}/cloud-init/fluent-bit.yaml", {
     hostname      = "app"
     collect_nginx = false
+    bucket_name   = local.bronze_bucket
   })
   fluent_bit_config_database = templatefile("${path.module}/cloud-init/fluent-bit.yaml", {
     hostname      = "database"
     collect_nginx = false
+    bucket_name   = local.bronze_bucket
   })
 
   app_bootstrap = replace(templatefile("${path.module}/cloud-init/app.sh", {
@@ -42,7 +44,7 @@ resource "aws_ebs_volume" "mysql_data" {
 }
 
 resource "aws_s3_object" "app_bootstrap" {
-  bucket       = "infra-pilates-bronze"
+  bucket       = local.bronze_bucket
   key          = "bootstrap/infra-pilates/app.sh"
   content      = local.app_bootstrap
   content_type = "text/x-shellscript"
@@ -50,7 +52,7 @@ resource "aws_s3_object" "app_bootstrap" {
 }
 
 resource "aws_s3_object" "database_bootstrap" {
-  bucket       = "infra-pilates-bronze"
+  bucket       = local.bronze_bucket
   key          = "bootstrap/infra-pilates/database.sh"
   content      = local.database_bootstrap
   content_type = "text/x-shellscript"
@@ -75,7 +77,7 @@ resource "aws_ssm_association" "app_bootstrap" {
   }
 
   parameters = {
-    commands = "echo 'App bootstrap revision ${aws_s3_object.app_bootstrap.etag}' && apt-get update && apt-get install -y awscli && aws s3 cp --region ${local.aws_region} s3://infra-pilates-bronze/bootstrap/infra-pilates/app.sh /tmp/infra-pilates-app-bootstrap.sh && sed -i 's/\\r$//' /tmp/infra-pilates-app-bootstrap.sh && bash /tmp/infra-pilates-app-bootstrap.sh"
+    commands = "echo 'App bootstrap revision ${aws_s3_object.app_bootstrap.etag}' && apt-get update && apt-get install -y awscli && aws s3 cp --region ${local.aws_region} s3://${local.bronze_bucket}/bootstrap/infra-pilates/app.sh /tmp/infra-pilates-app-bootstrap.sh && sed -i 's/\\r$//' /tmp/infra-pilates-app-bootstrap.sh && bash /tmp/infra-pilates-app-bootstrap.sh"
   }
 
   depends_on = [
@@ -96,7 +98,7 @@ resource "aws_ssm_association" "database_bootstrap" {
   }
 
   parameters = {
-    commands = "apt-get update && apt-get install -y awscli && aws s3 cp --region ${local.aws_region} s3://infra-pilates-bronze/bootstrap/infra-pilates/database.sh /tmp/infra-pilates-database-bootstrap.sh && sed -i 's/\\r$//' /tmp/infra-pilates-database-bootstrap.sh && bash /tmp/infra-pilates-database-bootstrap.sh"
+    commands = "apt-get update && apt-get install -y awscli && aws s3 cp --region ${local.aws_region} s3://${local.bronze_bucket}/bootstrap/infra-pilates/database.sh /tmp/infra-pilates-database-bootstrap.sh && sed -i 's/\\r$//' /tmp/infra-pilates-database-bootstrap.sh && bash /tmp/infra-pilates-database-bootstrap.sh"
   }
 
   depends_on = [
