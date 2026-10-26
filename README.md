@@ -135,6 +135,8 @@ em `.env` para o host desse MySQL.
 Para iniciar o backend local apontando para um MySQL separado:
 
 ```powershell
+Set-Location ..\BackEnd
+.\mvnw.cmd --batch-mode clean package -DskipTests
 docker compose --env-file .env up --build -d
 ```
 
