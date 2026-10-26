@@ -16,10 +16,10 @@ FILE_URL = os.environ.get(
     "https://svs.aids.gov.br/daent/cgdnt/vigitel/vigitel-2006-2024-peso-rake-csv.zip",
 )
 ZIP_FILE_NAME = PurePosixPath(urlparse(FILE_URL).path).name
-PREFIX_BASE = os.environ.get("PREFIX_BASE", "vigitel/")
 
 
 def lambda_handler(event, context):
+    PREFIX_BASE = os.environ.get("PREFIX_BASE", "vigitel/")
     if PREFIX_BASE and not PREFIX_BASE.endswith("/"):
         PREFIX_BASE += "/"
 
