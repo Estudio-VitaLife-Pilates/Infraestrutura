@@ -46,12 +46,16 @@ Resources:
       Runtime: python3.12
       Handler: app.lambda_handler
       Role: !Sub arn:aws:iam::${AWS::AccountId}:role/LabRole
-      Timeout: 30
-      MemorySize: 128
+      Timeout: 900
+      MemorySize: 1024
+      EphemeralStorage:
+        Size: 2048
       CodeUri: lambda/
       Environment:
         Variables:
           BUCKET_NAME: !Ref BronzeBucket
+          FILE_URL: https://svs.aids.gov.br/daent/cgdnt/vigitel/vigitel-2006-2024-peso-rake-csv.zip
+          PREFIX_BASE: vigitel/
 
   BronzeUploadFunctionUrl:
     Type: AWS::Lambda::Url
