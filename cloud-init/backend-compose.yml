@@ -14,6 +14,10 @@ services:
       RABBITMQ_HOST: rabbitmq
       RABBITMQ_USERNAME: pilates
       RABBITMQ_PASSWORD: pilates-rabbit-2026
+      LEMBRETE_CANAL: $${LEMBRETE_CANAL:-log}
+      SMSGO_API_KEY: $${SMSGO_API_KEY:-}
+      LEMBRETE_ANTECEDENCIA_HORAS: $${LEMBRETE_ANTECEDENCIA_HORAS:-24}
+      LEMBRETE_INTERVALO_MINUTOS: $${LEMBRETE_INTERVALO_MINUTOS:-15}
     depends_on:
       rabbitmq:
         condition: service_started
