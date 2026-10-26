@@ -58,6 +58,21 @@ output "athena_logs_workgroup" {
   value       = aws_athena_workgroup.logs.name
 }
 
+output "glue_vigitel_database_name" {
+  description = "Nome do banco de dados Glue com o catalogo dos dados do Vigitel"
+  value       = aws_glue_catalog_database.vigitel.name
+}
+
+output "glue_vigitel_crawler_name" {
+  description = "Nome do crawler Glue dos dados do Vigitel"
+  value       = aws_glue_crawler.vigitel.name
+}
+
+output "athena_vigitel_workgroup" {
+  description = "Workgroup Athena configurado para consultar os dados do Vigitel"
+  value       = aws_athena_workgroup.vigitel.name
+}
+
 output "nat_gateway_ip" {
   description = "IP publico do NAT Gateway (saida de internet da subnet privada)"
   value       = aws_eip.nat.public_ip

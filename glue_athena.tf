@@ -40,3 +40,46 @@ resource "aws_athena_workgroup" "logs" {
     }
   }
 }
+
+resource "aws_glue_catalog_database" "vigitel" {
+  name        = "infra_pilates_vigitel"
+  description = "Catalogo dos dados CSV do Vigitel armazenados no bucket bronze"
+}
+
+resource "aws_glue_crawler" "vigitel" {
+  name          = "infra-pilates-vigitel"
+  database_name = aws_glue_catalog_database.vigitel.name
+  role          = "arn:aws:iam::${data.aws_caller_identity.current.account_id}:role/LabRole"
+  table_prefix  = "vigitel_"
+
+  s3_target {
+    path = "s3://${local.bronze_bucket}/vigitel/csv/"
+  }
+
+  schema_change_policy {
+    update_behavior = "UPDATE_IN_DATABASE"
+    delete_behavior = "LOG"
+  }
+
+  recrawl_policy {
+    recrawl_behavior = "CRAWL_EVERYTHING"
+  }
+}
+
+resource "aws_athena_workgroup" "vigitel" {
+  name        = "infra-pilates-vigitel"
+  description = "Consultas Athena para os dados do Vigitel"
+
+  configuration {
+    enforce_workgroup_configuration    = true
+    publish_cloudwatch_metrics_enabled = true
+
+    result_configuration {
+      output_location = "s3://${local.bronze_bucket}/athena-results/vigitel/"
+
+      encryption_configuration {
+        encryption_option = "SSE_S3"
+      }
+    }
+  }
+}
