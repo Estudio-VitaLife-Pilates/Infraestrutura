@@ -18,6 +18,17 @@ Manager às EC2 existentes:
 - Todos os agentes enviam logs JSON Lines ao prefixo
   `s3://infra-pilates-bronze-${AWS_ACCOUNT_ID}/logs/`.
   Os objetos são organizados por tipo de origem, host e data.
+- O CSV do Vigitel é catalogado pelo Glue crawler
+  `infra-pilates-vigitel`, no banco `infra_pilates_vigitel`, a partir do
+  prefixo `s3://infra-pilates-bronze-${AWS_ACCOUNT_ID}/vigitel/csv/`. O
+  workgroup Athena `infra-pilates-vigitel` salva resultados em
+  `s3://infra-pilates-bronze-${AWS_ACCOUNT_ID}/athena-results/vigitel/`.
+
+Após o upload do CSV, execute o crawler `infra-pilates-vigitel` no Glue para
+atualizar a tabela do catálogo. Depois, selecione o workgroup
+`infra-pilates-vigitel` no Athena e consulte o banco `infra_pilates_vigitel`.
+Os nomes da tabela e das colunas são determinados pelo crawler; confira-os no
+catálogo após a primeira execução.
 
 Os agentes coletam o journal do systemd; os arquivos tradicionais
 `/var/log/auth.log`, `syslog`, `dpkg.log`, `kern.log` e `ufw.log`; os arquivos de
